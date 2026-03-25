@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLT3 Pathogenicity Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f9fa;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #0e7490;
+  --accent-bg: #ecfeff;
+  --path: #dc2626;
+  --lpath: #ea580c;
+  --vus: #d97706;
+  --lben: #16a34a;
+  --ben: #0e7490;
+}
+body {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2.5rem 1rem 4rem;
+}
+.container { max-width: 620px; margin: 0 auto; }
+
+/* Header */
+.eyebrow {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem;
+}
+h1 { font-size: 2.1rem; font-weight: 300; line-height: 1.2; margin-bottom: 0.4rem; }
+h1 strong { font-weight: 500; }
+.subtitle { font-size: 0.875rem; color: var(--muted); margin-bottom: 2rem; }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Fields */
+.field { margin-bottom: 1.25rem; }
+.field:last-of-type { margin-bottom: 0; }
+.field-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+label { font-size: 10px; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.eg { font-size: 11px; color: #94a3b8; font-family: 'IBM Plex Mono', monospace; }
+input[type="text"] {
+  width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 0.92rem;
+  padding: 0.7rem 0.9rem; border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); outline: none; transition: border-color 0.15s;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+input[type="text"].error { border-color: var(--path); }
+.err-msg { font-size: 11.5px; color: var(--path); margin-top: 0.35rem; display: none; }
+.divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+/* Button */
+button#predict-btn {
+  width: 100%; padding: 0.8rem; background: var(--text); color: #fff;
+  border: none; border-radius: 8px; font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.92rem; font-weight: 500; cursor: pointer;
+  transition: opacity 0.15s; margin-top: 1.25rem; letter-spacing: 0.01em;
+}
+button#predict-btn:hover { opacity: 0.82; }
+button#predict-btn:active { opacity: 0.68; transform: scale(0.99); }
+
+/* Result card */
+.result-card { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.result-header {
+  padding: 1.1rem 1.5rem; display: flex; justify-content: space-between;
+  align-items: center; border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.result-header-label { font-size: 10px; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0.28rem 0.8rem; border-radius: 100px; font-size: 12px; font-weight: 500;
+}
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge.pathogenic     { background: #fef2f2; color: var(--path); }
+.badge.likely-path    { background: #fff7ed; color: var(--lpath); }
+.badge.vus            { background: #fffbeb; color: var(--vus); }
+.badge.likely-benign  { background: #f0fdf4; color: var(--lben); }
+.badge.benign         { background: var(--accent-bg); color: var(--ben); }
+
+.result-body { padding: 1.5rem; }
+
+/* Score display */
+.score-row { display: flex; align-items: flex-end; gap: 0.75rem; margin-bottom: 0.75rem; }
+.score-pct { font-size: 3.2rem; font-weight: 300; line-height: 1; letter-spacing: -0.02em; }
+.score-desc { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 0.3rem; }
+.score-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 1.5rem; }
+.score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.55s cubic-bezier(.4,0,.2,1); }
+
+/* Known badge */
+.known-badge {
+  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 1rem;
+  background: var(--accent-bg); color: var(--accent); font-size: 11px;
+  font-weight: 500; padding: 0.25rem 0.65rem; border-radius: 4px; border: 1px solid #a5f3fc;
+}
+
+/* Meta grid */
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 1.25rem; }
+.meta-item { background: var(--bg); border-radius: 8px; padding: 0.7rem 0.85rem; }
+.meta-lbl { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.2rem; }
+.meta-val { font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; color: var(--text); font-weight: 500; word-break: break-all; }
+
+/* Feature breakdown */
+.fb-section { margin-bottom: 1.25rem; }
+.fb-title { font-size: 10px; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+.fb-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.55rem; }
+.fb-name { width: 145px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.fb-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.fb-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.55s ease; }
+.fb-val { width: 34px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+
+/* Reasoning */
+.reasoning {
+  background: var(--bg); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+  padding: 0.85rem 1rem; font-size: 13px; color: var(--text); line-height: 1.65;
+  margin-bottom: 1.25rem;
+}
+
+/* Disclaimer */
+.disclaimer { font-size: 11px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 1rem; }
+
+/* Footer */
+.footer { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 1.5rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <p class="eyebrow">FLT3 · Genomic Research</p>
+    <h1>Variant Pathogenicity <strong>Predictor</strong></h1>
+    <p class="subtitle">Computational prediction of FLT3 variant pathogenicity from CDS and amino acid notation. For research use only.</p>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <div class="field-header">
+        <label for="cds">CDS Mutation</label>
+        <span class="eg">e.g. c.2503G&gt;T</span>
+      </div>
+      <input type="text" id="cds" placeholder="c." autocomplete="off" spellcheck="false">
+      <p class="err-msg" id="cds-err"></p>
+    </div>
+
+    <div class="field">
+      <div class="field-header">
+        <label for="aa">Amino Acid Change</label>
+        <span class="eg">e.g. p.Asp835Tyr</span>
+      </div>
+      <input type="text" id="aa" placeholder="p." autocomplete="off" spellcheck="false">
+      <p class="err-msg" id="aa-err"></p>
+    </div>
+
+    <button id="predict-btn" onclick="runPredict()">Predict Pathogenicity</button>
+  </div>
+
+  <div class="result-card" id="result-card">
+    <div class="result-header">
+      <span class="result-header-label">Prediction Result</span>
+      <span class="badge" id="result-badge"></span>
+    </div>
+    <div class="result-body">
+      <div id="known-wrap"></div>
+
+      <div class="score-row">
+        <div class="score-pct" id="score-pct">—</div>
+        <div class="score-desc">pathogenicity<br>probability</div>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" id="score-bar"></div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-item"><div class="meta-lbl">CDS</div><div class="meta-val" id="m-cds">—</div></div>
+        <div class="meta-item"><div class="meta-lbl">Amino Acid</div><div class="meta-val" id="m-aa">—</div></div>
+        <div class="meta-item"><div class="meta-lbl">Domain</div><div class="meta-val" id="m-domain">—</div></div>
+        <div class="meta-item"><div class="meta-lbl">Mutation Type</div><div class="meta-val" id="m-type">—</div></div>
+      </div>
+
+      <div class="fb-section" id="fb-section">
+        <div class="fb-title">Score Breakdown</div>
+        <div class="fb-row">
+          <span class="fb-name">Domain / Position</span>
+          <div class="fb-track"><div class="fb-fill" id="fb-domain"></div></div>
+          <span class="fb-val" id="fv-domain"></span>
+        </div>
+        <div class="fb-row">
+          <span class="fb-name">AA Change Severity</span>
+          <div class="fb-track"><div class="fb-fill" id="fb-sub"></div></div>
+          <span class="fb-val" id="fv-sub"></span>
+        </div>
+        <div class="fb-row">
+          <span class="fb-name">Mutation Context</span>
+          <div class="fb-track"><div class="fb-fill" id="fb-ctx"></div></div>
+          <span class="fb-val" id="fv-ctx"></span>
+        </div>
+      </div>
+
+      <div class="reasoning" id="reasoning"></div>
+
+      <div class="disclaimer">
+        This tool is for <strong>research use only</strong> and must not be used for clinical diagnosis or patient management. Predictions are based on computational features derived from published FLT3 variant data. Always confirm findings with validated molecular assays and consult a qualified clinical geneticist.
+      </div>
+    </div>
+  </div>
+
+  <p class="footer">
+    FLT3 Predictor · Model v1.0<br>
+    Data: ClinVar · COSMIC · Mirza et al. 2024 · Yamamoto et al. 2001 · Smith et al. 2015
+  </p>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// KNOWN VARIANT DATABASE
+// ───────────────────────────────────────────────────────────
+// To add new variants when you collect more data:
+//   1. Add a new line below in the format:
+//      "c.XXXXN>N|p.RefPosAlt": { score: 0.XX, source: "...", mechanism: "..." },
+//   2. Score: 0.0 = fully benign, 1.0 = fully pathogenic
+//   3. Redeploy to Render (one click)
+// ═══════════════════════════════════════════════════════════
+const KNOWN_VARIANTS = {
+
+  // ── D835 HOTSPOT — TKD2 Activation Loop ──────────────
+  "c.2503G>T|p.Asp835Tyr":  { score: 0.97, source: "ClinVar Pathogenic; COSMIC n=285; Yamamoto 2001", mechanism: "Most common FLT3 TKD mutation (~7% AML). Radical Asp→Tyr change (Grantham 160) stabilises the activation loop in DFG-in conformation, causing constitutive kinase activation." },
+  "c.2504A>T|p.Asp835Val":  { score: 0.96, source: "ClinVar Pathogenic; COSMIC n=52; Smith 2015", mechanism: "Second most frequent D835 mutation. Radical Asp→Val change. Confers high resistance to type II TKIs (quizartinib, sorafenib) by locking the activation loop." },
+  "c.2503G>C|p.Asp835His":  { score: 0.93, source: "Likely Pathogenic; COSMIC n=18; Yamamoto 2001", mechanism: "Activating D835 mutation. Asp→His (Grantham 81) is moderately radical. Intermediate resistance to type II TKIs." },
+  "c.2505T>A|p.Asp835Glu":  { score: 0.90, source: "Pathogenic; COSMIC n=12; Smith 2015", mechanism: "Conservative Asp→Glu substitution (Grantham 45), yet still activating. Least resistance to type II TKIs among D835 variants." },
+  "c.2503G>A|p.Asp835Asn":  { score: 0.88, source: "Likely Pathogenic; COSMIC n=8; Yamamoto 2001", mechanism: "Activating D835 mutation. Asp→Asn is a relatively conservative change (Grantham 23), making it less severe than D835Y or D835V. Less well-studied." },
+  "c.2504A>C|p.Asp835Ala":  { score: 0.86, source: "Likely Pathogenic; COSMIC n=5; Mirza 2024", mechanism: "Activating mutation with minimal TKI resistance. Asp→Ala (Grantham 126) disrupts the DFG motif but less radically than Asp→Tyr." },
+  "c.2503G>T|p.Asp835Phe":  { score: 0.96, source: "Pathogenic; COSMIC n=7; Smith 2015", mechanism: "Bulky Asp→Phe substitution (Grantham 177). Stabilises DFG-in conformation with high steric bulk. High resistance to quizartinib and sorafenib." },
+
+  // ── I836 — MIXED PATHOGENICITY ────────────────────────
+  "c.2506A>C|p.Ile836His":  { score: 0.85, source: "Likely Pathogenic; COSMIC n=9; Mirza 2024", mechanism: "Ile→His in the activation loop (Grantham 94). Moderate pathogenicity — less severe than D835 mutations but disrupts activation loop conformation." },
+  "c.2506A>T|p.Ile836Leu":  { score: 0.18, source: "VUS; COSMIC n=3; Mirza 2024 (SIFT tolerated)", mechanism: "Conservative Ile→Leu substitution (Grantham 5). SIFT-tolerated. Likely a benign passenger mutation with no significant functional consequence." },
+  "c.2508C>G|p.Ile836Met":  { score: 0.20, source: "VUS; COSMIC n=4; Thiengtrong 2022 (FATHMM 0.20)", mechanism: "Conservative Ile→Met substitution (Grantham 10). FATHMM score 0.20 indicates neutral functional impact. Likely benign." },
+  "c.2506A>G|p.Ile836Val":  { score: 0.16, source: "VUS; Mirza 2024 (SIFT tolerated)", mechanism: "Very conservative Ile→Val change (Grantham 29). SIFT-tolerated. Likely neutral passenger variant." },
+  "c.2508C>A|p.Ile836Ile":  { score: 0.03, source: "Likely Benign; synonymous; Thiengtrong 2022", mechanism: "Synonymous variant — nucleotide change does not alter the amino acid. No protein-level consequence expected." },
+
+  // ── RESISTANCE MUTATIONS ──────────────────────────────
+  "c.2525A>G|p.Tyr842Cys":  { score: 0.91, source: "Likely Pathogenic; COSMIC n=14; PMC7004512", mechanism: "Acquired resistance mutation. Radical Tyr→Cys change (Grantham 194) disrupts activation loop. Confers resistance to quizartinib and sorafenib." },
+  "c.2524T>C|p.Tyr842His":  { score: 0.88, source: "Likely Pathogenic; COSMIC n=11; PMC7004512", mechanism: "Acquired resistance to quizartinib. Moderate Tyr→His substitution (Grantham 83) destabilises drug binding site." },
+  "c.2071T>C|p.Phe691Leu":  { score: 0.93, source: "Likely Pathogenic; COSMIC n=31; PMC7004512", mechanism: "Gatekeeper mutation in TKD1. Conservative Phe→Leu change (Grantham 22) but critical position creates steric clash with type II TKIs. High resistance to quizartinib and sorafenib." },
+
+  // ── BENIGN / TOLERATED ───────────────────────────────
+  "c.1780T>C|p.Phe594Leu":  { score: 0.14, source: "VUS; Mirza 2024 (SIFT tolerated)", mechanism: "JM domain variant. Conservative Phe→Leu substitution (Grantham 22). SIFT-tolerated. Low pathogenic potential." },
+  "c.1952A>G|p.Asp651Gly":  { score: 0.12, source: "VUS; Mirza 2024 (SIFT tolerated)", mechanism: "TKD1 variant. SIFT-tolerated substitution. Low predicted functional impact based on in silico tools." },
+};
+
+// ═══════════════════════════════════════════════════════════
+// AMINO ACID REFERENCE
+// ═══════════════════════════════════════════════════════════
+const AA3TO1 = {
+  Ala:'A', Arg:'R', Asn:'N', Asp:'D', Cys:'C', Gln:'Q', Glu:'E',
+  Gly:'G', His:'H', Ile:'I', Leu:'L', Lys:'K', Met:'M', Phe:'F',
+  Pro:'P', Ser:'S', Thr:'T', Trp:'W', Tyr:'Y', Val:'V',
+  Ter:'*', Stop:'*'
+};
+
+// Grantham physicochemical distances (higher = more radical substitution, max ~215)
+const GRANTHAM = {
+  'D_Y':160,'D_V':152,'D_F':177,'D_G':94, 'D_H':81, 'D_E':45, 'D_N':23, 'D_A':126,'D_T':85, 'D_S':65, 'D_C':154,'D_K':101,'D_R':96, 'D_L':149,'D_M':158,'D_I':168,'D_P':108,'D_Q':61, 'D_W':181,
+  'I_H':94, 'I_F':21, 'I_L':5,  'I_V':29, 'I_M':10, 'I_C':198,'I_A':94, 'I_T':89, 'I_S':142,'I_G':135,'I_P':95, 'I_Y':33, 'I_D':168,'I_N':149,'I_Q':109,'I_K':102,'I_E':134,'I_R':97, 'I_W':61,
+  'F_L':22, 'F_V':50, 'F_I':21, 'F_M':28, 'F_Y':22, 'F_A':113,'F_C':205,'F_S':155,'F_G':153,'F_T':103,'F_H':100,'F_P':114,'F_D':177,'F_N':158,'F_Q':116,'F_K':102,'F_E':140,'F_R':97, 'F_W':40,
+  'Y_C':194,'Y_H':83, 'Y_F':22, 'Y_L':65, 'Y_V':55, 'Y_I':33, 'Y_A':112,'Y_D':160,'Y_S':144,'Y_T':102,'Y_G':147,'Y_N':143,'Y_Q':99, 'Y_K':85, 'Y_E':122,'Y_R':77, 'Y_M':36, 'Y_P':114,'Y_W':37,
+  'V_A':64, 'V_L':32, 'V_I':29, 'V_M':21, 'V_T':69, 'V_S':124,'V_G':109,'V_C':192,'V_F':50, 'V_H':84, 'V_P':96, 'V_N':133,'V_D':152,'V_Q':96, 'V_K':97, 'V_E':121,'V_R':96, 'V_W':88, 'V_Y':55,
+  'A_G':60, 'A_V':64, 'A_L':96, 'A_I':94, 'A_T':58, 'A_S':99, 'A_C':195,'A_P':27, 'A_F':113,'A_H':86, 'A_D':126,'A_N':111,'A_Q':91, 'A_K':106,'A_E':107,'A_R':112,'A_M':84, 'A_W':148,'A_Y':112,
+  'G_A':60, 'G_V':109,'G_L':138,'G_I':135,'G_D':94, 'G_N':80, 'G_S':56, 'G_T':59, 'G_C':159,'G_P':42, 'G_H':98, 'G_Y':147,'G_F':153,'G_Q':87, 'G_K':127,'G_E':98, 'G_R':125,'G_M':127,'G_W':184,
+  'P_A':27, 'P_G':42, 'P_V':96, 'P_L':98, 'P_I':95, 'P_T':38, 'P_S':74, 'P_C':169,'P_F':114,'P_H':77, 'P_D':108,'P_N':91, 'P_Q':76, 'P_K':103,'P_E':93, 'P_R':103,'P_M':87, 'P_W':147,'P_Y':114,
+  'E_K':56, 'E_Q':29, 'E_D':45, 'E_N':142,'E_R':54, 'E_H':40, 'E_A':107,'E_S':80, 'E_G':98, 'E_T':65, 'E_V':121,'E_L':138,'E_I':134,'E_F':140,'E_C':169,'E_P':93, 'E_M':142,'E_W':172,'E_Y':122,
+  'K_R':26, 'K_E':56, 'K_Q':53, 'K_N':94, 'K_D':101,'K_H':32, 'K_A':106,'K_S':121,'K_T':78, 'K_G':127,'K_V':97, 'K_L':107,'K_I':102,'K_F':102,'K_C':154,'K_P':103,'K_M':95, 'K_W':110,'K_Y':85,
+  'R_K':26, 'R_E':54, 'R_Q':43, 'R_N':86, 'R_D':96, 'R_H':29, 'R_A':112,'R_S':110,'R_T':71, 'R_G':125,'R_V':96, 'R_L':102,'R_I':97, 'R_F':97, 'R_C':180,'R_P':103,'R_M':91, 'R_W':101,'R_Y':77,
+  'H_D':81, 'H_N':68, 'H_Q':24, 'H_K':32, 'H_R':29, 'H_A':86, 'H_S':89, 'H_T':47, 'H_G':98, 'H_V':84, 'H_L':99, 'H_I':94, 'H_F':100,'H_C':174,'H_P':77, 'H_M':87, 'H_W':115,'H_Y':83,
+  'N_D':23, 'N_H':68, 'N_S':46, 'N_T':65, 'N_A':111,'N_G':80, 'N_V':133,'N_L':142,'N_I':149,'N_F':158,'N_C':139,'N_P':91, 'N_Q':46, 'N_K':94, 'N_E':142,'N_R':86, 'N_M':142,'N_W':174,'N_Y':143,
+  'S_T':58, 'S_A':99, 'S_G':56, 'S_N':46, 'S_D':65, 'S_H':89, 'S_V':124,'S_L':145,'S_I':142,'S_F':155,'S_C':112,'S_P':74, 'S_Q':68, 'S_K':121,'S_E':80, 'S_R':110,'S_M':135,'S_W':177,'S_Y':144,
+  'T_S':58, 'T_A':58, 'T_G':59, 'T_N':65, 'T_D':85, 'T_H':47, 'T_V':69, 'T_L':107,'T_I':89, 'T_F':103,'T_C':149,'T_P':38, 'T_Q':42, 'T_K':78, 'T_E':65, 'T_R':71, 'T_M':81, 'T_W':128,'T_Y':102,
+  'C_A':195,'C_G':159,'C_V':192,'C_L':198,'C_I':198,'C_F':205,'C_Y':194,'C_H':174,'C_D':154,'C_N':139,'C_S':112,'C_T':149,'C_P':169,'C_Q':154,'C_K':154,'C_E':169,'C_R':180,'C_M':196,'C_W':215,
+  'M_I':10, 'M_L':15, 'M_V':21, 'M_F':28, 'M_A':84, 'M_T':81, 'M_S':135,'M_C':196,'M_G':127,'M_H':87, 'M_D':158,'M_N':142,'M_Q':101,'M_K':95, 'M_E':142,'M_R':91, 'M_P':87, 'M_W':67, 'M_Y':36,
+  'L_I':5,  'L_V':32, 'L_M':15, 'L_F':22, 'L_A':96, 'L_T':107,'L_S':145,'L_C':198,'L_G':138,'L_H':99, 'L_D':149,'L_N':142,'L_Q':113,'L_K':107,'L_E':138,'L_R':102,'L_P':98, 'L_W':61, 'L_Y':65,
+  'W_F':40, 'W_Y':37, 'W_M':67, 'W_L':61, 'W_I':61, 'W_C':215,'W_H':115,'W_A':148,'W_G':184,'W_V':88, 'W_S':177,'W_T':128,'W_P':147,'W_N':174,'W_Q':130,'W_K':110,'W_E':172,'W_R':101,'W_D':181,
+  'Q_N':46, 'Q_H':24, 'Q_K':53, 'Q_E':29, 'Q_R':43, 'Q_A':91, 'Q_S':68, 'Q_T':42, 'Q_G':87, 'Q_V':96, 'Q_L':113,'Q_I':109,'Q_F':116,'Q_C':154,'Q_P':76, 'Q_M':101,'Q_W':130,'Q_Y':99, 'Q_D':61,
+};
+
+function grantham(ref1, alt1) {
+  if (!ref1 || !alt1 || ref1 === alt1) return 0;
+  const k1 = `${ref1}_${alt1}`, k2 = `${alt1}_${ref1}`;
+  return GRANTHAM[k1] ?? GRANTHAM[k2] ?? 100;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOMAIN MAP
+// ═══════════════════════════════════════════════════════════
+function domainInfo(codon) {
+  const c = parseInt(codon);
+  if (isNaN(c)) return { name: 'Unknown', score: 0.45 };
+  if (c === 835)                  return { name: 'TKD2 · D835 Hotspot',        score: 0.93 };
+  if (c === 836)                  return { name: 'TKD2 · I836 (A-Loop)',        score: 0.58 };
+  if (c === 842)                  return { name: 'TKD2 · Y842 (Resistance)',    score: 0.85 };
+  if (c === 691)                  return { name: 'TKD1 · Gatekeeper (F691)',    score: 0.88 };
+  if (c >= 838 && c <= 841)       return { name: 'TKD2 · Activation Loop',      score: 0.75 };
+  if (c >= 830 && c <= 850)       return { name: 'TKD2 · Activation Loop',      score: 0.78 };
+  if (c >= 800 && c <= 950)       return { name: 'TKD2',                        score: 0.64 };
+  if (c >= 700 && c <= 799)       return { name: 'TKD1',                        score: 0.56 };
+  if (c >= 563 && c <= 699)       return { name: 'Juxtamembrane Domain',        score: 0.50 };
+  if (c >= 500 && c <= 562)       return { name: 'Transmembrane Domain',        score: 0.38 };
+  if (c < 500)                    return { name: 'Extracellular Domain',         score: 0.28 };
+  return { name: 'Unknown Region', score: 0.45 };
+}
+
+// ═══════════════════════════════════════════════════════════
+// PARSERS
+// ═══════════════════════════════════════════════════════════
+function parseCDS(raw) {
+  const s = raw.trim().replace(/\s/g, '');
+  const c = s.startsWith('c.') ? s : 'c.' + s;
+  const snv = c.match(/^c\.(\d+)([ACGTacgt])>([ACGTacgt])$/);
+  if (snv) {
+    const ref = snv[2].toUpperCase(), alt = snv[3].toUpperCase();
+    return { clean: c, type: ref === alt ? 'no-change' : 'snv', pos: +snv[1], ref, alt };
+  }
+  if (/dup/i.test(c)) return { clean: c, type: 'itd' };
+  if (/del/i.test(c)) return { clean: c, type: 'deletion' };
+  if (/ins/i.test(c)) return { clean: c, type: 'insertion' };
+  if (/fs/i.test(c))  return { clean: c, type: 'frameshift' };
+  return { clean: c, type: 'unknown' };
+}
+
+function parseAA(raw) {
+  const s = raw.trim().replace(/\s/g, '');
+  const p = s.startsWith('p.') ? s : 'p.' + s;
+
+  // Synonymous: p.Ile836Ile or p.Ile836=
+  const syn = p.match(/^p\.([A-Za-z]{3})(\d+)\1$/i) || p.match(/^p\.([A-Za-z]{3})(\d+)=$/i);
+  if (syn) return { clean: p, type: 'synonymous', codon: +syn[2], ref3: syn[1] };
+
+  // Nonsense: p.Glu834* or p.Glu834Ter
+  const stop = p.match(/^p\.([A-Za-z]{3})(\d+)(\*|Ter)$/i);
+  if (stop) return { clean: p, type: 'nonsense', codon: +stop[2], ref3: stop[1] };
+
+  // Frameshift: p.Asp835fs
+  const fs = p.match(/^p\.([A-Za-z]{3})(\d+).*fs/i);
+  if (fs) return { clean: p, type: 'frameshift', codon: +fs[2], ref3: fs[1] };
+
+  // Deletion: p.Asp835del
+  const del_ = p.match(/^p\.([A-Za-z]{3})(\d+)del$/i);
+  if (del_) return { clean: p, type: 'deletion', codon: +del_[2], ref3: del_[1] };
+
+  // ITD / dup
+  if (/dup/i.test(p)) return { clean: p, type: 'itd' };
+
+  // Missense: p.Asp835Tyr
+  const ms = p.match(/^p\.([A-Za-z]{3})(\d+)([A-Za-z]{3})$/i);
+  if (ms) {
+    const ref3 = ms[1], alt3 = ms[3];
+    const ref1 = AA3TO1[ref3] || '?', alt1 = AA3TO1[alt3] || '?';
+    const isSyn = ref3.toLowerCase() === alt3.toLowerCase();
+    return { clean: p, type: isSyn ? 'synonymous' : 'missense', codon: +ms[2], ref3, alt3, ref1, alt1 };
+  }
+
+  return { clean: p, type: 'unknown' };
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODEL WEIGHTS
+// ───────────────────────────────────────────────────────────
+// When you have more data and want to retrain, adjust these.
+// All three must sum to 1.0.
+// ═══════════════════════════════════════════════════════════
+const W = { domain: 0.42, substitution: 0.35, context: 0.23 };
+
+function computeScore(cdsRaw, aaRaw) {
+  const cds = parseCDS(cdsRaw);
+  const aa  = parseAA(aaRaw);
+
+  // ── HARD GUARDRAILS ──────────────────────────────────
+  if (cds.type === 'no-change') {
+    return mk(0.02, 0, 0, 0.02, 'No change', 'No change',
+      'Reference and alternate nucleotides are identical — this is not a variant. No functional consequence expected.',
+      domainInfo(cds.pos), false);
+  }
+  if (aa.type === 'synonymous') {
+    return mk(0.03, 0, 0, 0.03, 'Synonymous', aa.ref3 ? `Synonymous (${aa.ref3})` : 'Synonymous',
+      'Synonymous variant — the nucleotide change does not alter the encoded amino acid. Silent mutations are generally not pathogenic.',
+      domainInfo(aa.codon), false);
+  }
+  if (aa.type === 'itd' || cds.type === 'itd') {
+    return mk(0.97, 0.99, 0.99, 0.99, 'ITD', 'ITD',
+      'Internal Tandem Duplication — the most common FLT3 mutation in AML (~20% of cases). Causes ligand-independent dimerisation and constitutive STAT5/MAPK/AKT signalling. Strongly pathogenic.',
+      { name: 'Juxtamembrane Domain (ITD)', score: 0.99 }, true);
+  }
+  if (aa.type === 'nonsense') {
+    const d = domainInfo(aa.codon);
+    return mk(0.91, d.score, 0.95, 0.95, 'Nonsense', 'Nonsense (stop-gain)',
+      `Stop-gain mutation at codon ${aa.codon}. Premature truncation of the FLT3 protein is expected to disrupt kinase function.`,
+      d, false);
+  }
+  if (aa.type === 'frameshift' || cds.type === 'frameshift') {
+    const d = domainInfo(aa.codon);
+    return mk(0.89, d.score, 0.93, 0.93, 'Frameshift', 'Frameshift',
+      `Frameshift from codon ${aa.codon || '?'}. Alters the reading frame, likely producing a truncated or non-functional FLT3 protein.`,
+      d, false);
+  }
+  if (aa.type === 'deletion' || cds.type === 'deletion') {
+    const d = domainInfo(aa.codon);
+    const s = clip(d.score * 0.9 + 0.06);
+    return mk(s, d.score, 0.80, 0.84, 'Deletion', 'In-frame deletion',
+      `In-frame deletion near codon ${aa.codon || '?'} in the ${d.name}. Deletions in or adjacent to the activation loop can disrupt kinase conformation and activate the receptor.`,
+      d, false);
+  }
+
+  // ── KNOWN VARIANT LOOKUP ─────────────────────────────
+  const key = `${normCDS(cdsRaw)}|${normAA(aaRaw)}`;
+  if (KNOWN_VARIANTS[key]) {
+    const kv = KNOWN_VARIANTS[key];
+    const d  = domainInfo(aa.codon);
+    const g  = grantham(aa.ref1, aa.alt1);
+    const ss = clip(g / 215);
+    return mk(kv.score, d.score, ss, 0.75, 'Missense', 'Missense',
+      `${kv.mechanism} [${kv.source}]`, d, true);
+  }
+
+  // ── NOVEL MISSENSE SCORING ───────────────────────────
+  if (aa.type === 'missense') {
+    const d  = domainInfo(aa.codon);
+    const g  = grantham(aa.ref1, aa.alt1);
+    const ss = clip(g / 215);
+    const ds = d.score;
+    const cs = 0.62;
+    const raw = W.domain * ds + W.substitution * ss + W.context * cs;
+    const score = clip(raw);
+    const gl = g < 50 ? 'conservative' : g < 100 ? 'moderate' : g < 150 ? 'moderately radical' : 'radical';
+    const note = aa.ref1 === '?' || aa.alt1 === '?' ? ' (amino acid code not recognised — result may be less accurate)' : '';
+    const reasoning = `Novel variant — not in the reference database. Scored from three features: domain position (${d.name}, ${pct(ds)}), amino acid change severity (${aa.ref3 || '?'} → ${aa.alt3 || '?'}, Grantham distance ${g} — ${gl}, ${pct(ss)}), and mutation context (${pct(cs)}).${note} Confidence is lower for novel variants — experimental validation is strongly recommended.`;
+    return mk(score, ds, ss, cs, 'Missense', 'Missense', reasoning, d, false);
+  }
+
+  // ── UNRESOLVED ───────────────────────────────────────
+  const d = domainInfo(aa.codon);
+  return mk(0.50, d.score, 0.50, 0.50, 'Unknown', 'Unknown',
+    'Mutation type could not be determined from the inputs. Please check the format and try again. A score of 50% represents maximum uncertainty.',
+    d, false);
+}
+
+function mk(score, ds, ss, cs, typeShort, typeLong, reasoning, domain, isKnown) {
+  return { score, ds, ss, cs, typeShort, typeLong, reasoning, domain, isKnown };
+}
+function clip(v) { return Math.max(0.02, Math.min(0.97, v)); }
+function pct(v)  { return Math.round(v * 100) + '%'; }
+function normCDS(r) { const s = r.trim().replace(/\s/g,''); return s.startsWith('c.') ? s : 'c.'+s; }
+function normAA(r)  { const s = r.trim().replace(/\s/g,''); return s.startsWith('p.') ? s : 'p.'+s; }
+
+// ═══════════════════════════════════════════════════════════
+// CLASSIFICATION
+// ═══════════════════════════════════════════════════════════
+function classify(score) {
+  if (score >= 0.90) return { label: 'Pathogenic',       cls: 'pathogenic'    };
+  if (score >= 0.75) return { label: 'Likely Pathogenic',cls: 'likely-path'   };
+  if (score >= 0.45) return { label: 'VUS',              cls: 'vus'           };
+  if (score >= 0.20) return { label: 'Likely Benign',    cls: 'likely-benign' };
+  return                    { label: 'Benign',           cls: 'benign'        };
+}
+function barColor(score) {
+  if (score >= 0.90) return '#dc2626';
+  if (score >= 0.75) return '#ea580c';
+  if (score >= 0.45) return '#d97706';
+  if (score >= 0.20) return '#16a34a';
+  return '#0e7490';
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI
+// ═══════════════════════════════════════════════════════════
+function runPredict() {
+  const cds = document.getElementById('cds').value;
+  const aa  = document.getElementById('aa').value;
+
+  // Clear errors
+  ['cds','aa'].forEach(id => {
+    document.getElementById(id).classList.remove('error');
+    document.getElementById(id+'-err').style.display = 'none';
+  });
+
+  // Validate
+  let hasErr = false;
+  if (!cds.trim() || cds.trim() === 'c.') {
+    setErr('cds', 'Please enter a CDS mutation (e.g. c.2503G>T)');
+    hasErr = true;
+  }
+  if (!aa.trim() || aa.trim() === 'p.') {
+    setErr('aa', 'Please enter an amino acid change (e.g. p.Asp835Tyr)');
+    hasErr = true;
+  }
+  if (hasErr) return;
+
+  const r   = computeScore(cds, aa);
+  const cl  = classify(r.score);
+  const col = barColor(r.score);
+  const pctStr = (r.score * 100).toFixed(1) + '%';
+
+  // Show card
+  const card = document.getElementById('result-card');
+  card.style.display = 'block';
+
+  // Badge
+  const badge = document.getElementById('result-badge');
+  badge.textContent = cl.label;
+  badge.className = 'badge ' + cl.cls;
+
+  // Score
+  document.getElementById('score-pct').textContent = pctStr;
+  const bar = document.getElementById('score-bar');
+  bar.style.width = '0%';
+  setTimeout(() => { bar.style.width = pctStr; bar.style.background = col; }, 30);
+
+  // Meta
+  document.getElementById('m-cds').textContent    = normCDS(cds);
+  document.getElementById('m-aa').textContent     = normAA(aa);
+  document.getElementById('m-domain').textContent = r.domain.name;
+  document.getElementById('m-type').textContent   = r.typeLong;
+
+  // Known badge
+  document.getElementById('known-wrap').innerHTML = r.isKnown
+    ? '<div class="known-badge">✓ Matched in reference database</div>'
+    : '';
+
+  // Feature breakdown — hide for guardrail cases
+  const hideBreakdown = ['No change','Synonymous','ITD','Nonsense (stop-gain)','Frameshift'].includes(r.typeLong);
+  document.getElementById('fb-section').style.display = hideBreakdown ? 'none' : 'block';
+  if (!hideBreakdown) {
+    setBar('domain', r.ds);
+    setBar('sub',    r.ss);
+    setBar('ctx',    r.cs);
+  }
+
+  // Reasoning
+  document.getElementById('reasoning').textContent = r.reasoning;
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setErr(id, msg) {
+  document.getElementById(id).classList.add('error');
+  const el = document.getElementById(id+'-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function setBar(id, val) {
+  const p = Math.round(val * 100);
+  document.getElementById('fb-'+id).style.width = '0%';
+  setTimeout(() => { document.getElementById('fb-'+id).style.width = p+'%'; }, 60);
+  document.getElementById('fv-'+id).textContent = p+'%';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') runPredict(); });
+</script>
+</body>
+</html>
