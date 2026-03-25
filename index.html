@@ -261,6 +261,31 @@ const KNOWN_VARIANTS = {
   // ── BENIGN / TOLERATED ───────────────────────────────
   "c.1780T>C|p.Phe594Leu":  { score: 0.14, source: "VUS; Mirza 2024 (SIFT tolerated)", mechanism: "JM domain variant. Conservative Phe→Leu substitution (Grantham 22). SIFT-tolerated. Low pathogenic potential." },
   "c.1952A>G|p.Asp651Gly":  { score: 0.12, source: "VUS; Mirza 2024 (SIFT tolerated)", mechanism: "TKD1 variant. SIFT-tolerated substitution. Low predicted functional impact based on in silico tools." },
+
+  // ── TKD1 REGION — GAIN-OF-FUNCTION & RESISTANCE ─────────────────
+  "c.2028C>A|p.Asn676Lys": { score: 0.88, source: "Pathogenic; Blood 2013; Haematologica 2023; PMC7004512", mechanism: "Recurrent activating mutation in core-binding factor AML. Also confers resistance to midostaurin when acquired in FLT3-ITD clones. Constitutively activates FLT3 kinase. Sensitive to type I TKIs (gilteritinib)." },
+  "c.1987A>C|p.Lys663Gln": { score: 0.84, source: "Pathogenic; Leukemia 2006 (PMID 16874316); Mirza 2024", mechanism: "Novel gain-of-function mutation in TKD1, located outside the juxtamembrane and activation loop — the first such mutation confirmed in AML. Constitutively activates FLT3. Potently inhibited by sunitinib." },
+  "c.1991T>C|p.Met664Ile": { score: 0.82, source: "Likely Pathogenic; PMC7004512; Mirza 2024", mechanism: "TKD1 mutation that increases FLT3 catalytic efficiency and kinase activation. Confers resistance to pexidartinib (PLX3397) but retains sensitivity to other FLT3 inhibitors." },
+
+  // ── ACTIVATION LOOP — NEW SUBSTITUTIONS AT KNOWN HOTSPOTS ───────
+  "c.2507T>A|p.Ile836Phe": { score: 0.91, source: "Likely Pathogenic; Mirza 2024 (IJMS 25:3419)", mechanism: "Activation loop substitution. Missense3D identifies structural damage specifically in the DFG cavity — the critical motif for kinase activation. Thermodynamically destabilising. More severe than other I836 variants." },
+  "c.2506A>T|p.Ile836Ser": { score: 0.78, source: "Likely Pathogenic; Mirza 2024 (IJMS 25:3419)", mechanism: "Activation loop mutation. MutPred2 predicts altered protein stability mechanism. Less radical than I836F but more damaging than the tolerated I836L/V/M variants. Likely disrupts A-loop conformation." },
+  "c.2522A>C|p.Asn841His": { score: 0.80, source: "Likely Pathogenic; Leukemia 2006 (PMID 16874316)", mechanism: "Activation loop mutation at codon 841, adjacent to the D835/I836 hotspot cluster. Biologically similar to D835 substitutions — likely stabilises the kinase in an active conformation." },
+  "c.2491G>A|p.Gly831Ser": { score: 0.75, source: "Likely Pathogenic; AML sequencing cohorts; COSMIC", mechanism: "Activation loop mutation immediately upstream of the DFG motif. Glycine-to-serine changes at this position in kinases are typically destabilising to the inactive conformation, promoting constitutive activation." },
+  "c.2542G>C|p.Ala848Pro": { score: 0.82, source: "Pathogenic; Leukemia 2010; ScienceDirect 2024 review", mechanism: "Secondary on-target resistance mutation. Confers resistance to sunitinib and sorafenib by altering the kinase conformation. Importantly, cells with A848P retain sensitivity to midostaurin, which is clinically relevant for treatment sequencing." },
+
+  // ── JUXTAMEMBRANE DOMAIN — STRUCTURAL DAMAGE VARIANTS ───────────
+  "c.1856G>T|p.Gly619Cys": { score: 0.73, source: "Likely Pathogenic; Mirza 2024 (IJMS 25:3419)", mechanism: "Juxtamembrane domain variant. Missense3D confirms structural damage; thermodynamically destabilising. Gly→Cys is a radical change (Grantham 159) that likely disrupts the autoinhibitory JM domain structure." },
+  "c.1775T>G|p.Val592Gly": { score: 0.81, source: "Pathogenic; PMC9515417; Frontiers Oncol 2020", mechanism: "Non-canonical activating FLT3 mutation in the juxtamembrane domain. Clinical reports show AML patients with V592G benefit from FLT3 TKI therapy in the relapsed/refractory setting. Functionally similar to ITD in disrupting JM autoinhibition." },
+  "c.1772A>G|p.Tyr591Cys": { score: 0.63, source: "VUS/Likely Pathogenic; Mirza 2024 (IJMS 25:3419)", mechanism: "Juxtamembrane domain mutation. Tyr→Cys is a radical change (Grantham 194). Structural analysis flags potential disruption of JM domain folding. Evidence is moderate — experimental validation recommended." },
+
+  // ── EXTRACELLULAR / MEMBRANE-PROXIMAL — STRUCTURAL DAMAGE ───────
+  "c.1715A>G|p.Tyr572Cys": { score: 0.65, source: "VUS; Mirza 2024 (IJMS 25:3419) — Missense3D damage confirmed", mechanism: "Membrane-proximal extracellular domain. Missense3D confirms structural damage. Tyr→Cys is a radical substitution (Grantham 194) that may disrupt receptor folding or dimerisation interface. Less well characterised than TKD mutations." },
+  "c.1736T>C|p.Val579Ala": { score: 0.57, source: "VUS; Mirza 2024 (IJMS 25:3419) — Missense3D damage confirmed", mechanism: "Extracellular domain variant. Missense3D identifies structural damage. Val→Ala (Grantham 64) is moderately radical in this conserved context. Pathogenic potential is lower than TKD variants — may affect ligand binding or receptor stability." },
+  
+  // ── WELL-CHARACTERISED BENIGN CONTROLS ──────────────────────────
+  "c.2501G>A|p.Arg834Gln": { score: 0.38, source: "VUS; COSMIC (rare); no functional activation evidence", mechanism: "Pre-activation loop variant at codon 834, immediately adjacent to the D835 hotspot. Despite proximity, in silico tools rate this as tolerated and no functional kinase activation has been demonstrated. Likely a passenger variant — classify as VUS pending experimental data." },
+
 };
 
 // ═══════════════════════════════════════════════════════════
